@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import collections
-
+from inspect import signature
 # from functools import update_wrapper
 from functools import wraps
 
@@ -53,7 +53,7 @@ def memo(func):
     Memoize a function so that it caches all return values for
     faster future lookups.
     '''
-    functions = collections.defaultdict()
+    functions = collections.defaultdict(list)
 
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -63,10 +63,7 @@ def memo(func):
                 if (val[ARGS] == args) and (val[KWARGS] == kwargs):
                     print('Exist result for function {}'.format(func.__name__))
                     return val[RESULT]
-                else:
-                    print('Cache not exist for args...')
 
-        print('First run {}'.format(func.__name__))
         if kwargs:
             result = func(*args, **kwargs)
         elif args:
@@ -74,22 +71,46 @@ def memo(func):
         else:
             result = func()
 
-        lst = [[args, kwargs, result]]
-        functions[func.__name__] = lst
+        cache = functions[func.__name__]
+        cache.append([args, kwargs, result])
+        functions[func.__name__] = cache
         return result
 
     return wrapper
 
 
-def n_ary():
+def n_ary(func):
     '''
     Given binary function f(x, y), return an n_ary function such
     that f(x, y, z) = f(x, f(y,z)), etc. Also allow f(x) = x.
     '''
-    return
+    @wraps(func)
+    def wrapper(*args):
+        result = False
+        args_count = len(args)
+        func_parameters_count = len(signature(func).parameters)
+
+        if args_count > func_parameters_count:
+            window = len(args)
+
+            # Get first parametrs
+            parm = args[window - func_parameters_count:window:]
+            result = func(*parm)
+            for i in range(window - func_parameters_count, 0, -1):
+                parm = args[i - 1:i:]
+                result = func(*parm, result)
+
+        elif args_count == func_parameters_count:
+            result = func(*args)
+
+        elif args_count < func_parameters_count:
+            result = args[0]
+
+        return result
+    return wrapper
 
 
-def trace():
+def trace(func):
     '''Trace calls made to function decorated.
 
     @trace("____")
@@ -109,55 +130,50 @@ def trace():
      <-- fib(3) == 3
 
     '''
-    return
+
+    @wraps(func)
+    def wrapper(*args):
+
+        return func
+
+    return wrapper
 
 
-# @memo
-# @countcalls
 @memo
+@countcalls
+@n_ary
 def foo(a, b):
     return a + b
 
 
-# @n_ary
+@countcalls
+@memo
+@n_ary
+def bar(a, b):
+    return a * b
 
 
 @countcalls
-@memo
-def bar(*args):
-    result = 1
-    for arg in args:
-        result = arg * result
-    return result
-
-
-# @n_ary
-
-# @countcalls
-
+@trace("####")
 @memo
 def fib(n):
     """Some doc"""
-    return 1 if n <= 1 else fib(n - 1) + fib(n - 2)
-
-# @trace("####")
+    return 1 if n <= 1 else fib(n-1) + fib(n-2)
 
 
 def main():
     print(foo(4, 3))
-    # print(foo(4, 3, 2))
-    print(foo(4, 2))
-    print(foo(4, 3))
+    print(foo(4, 3, 2))
     print(foo(4, 3))
     # print("foo was called", foo.calls, "times")
 
     print(bar(4, 3))
     print(bar(4, 3, 2))
-    print(bar(5, 4, 3, 2))
+    print(bar(4, 3, 2, 1))
     # print("bar was called", bar.calls, "times")
 
-    # print(fib.__doc__)
-    # fib(3)
+    print(fib.__doc__)
+    fib(3)
     # print(fib.calls, 'calls made')
 
 
