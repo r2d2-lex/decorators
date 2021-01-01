@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import collections
-from inspect import signature
+import inspect
 # from functools import update_wrapper
 from functools import wraps
 
@@ -88,7 +88,7 @@ def n_ary(func):
     def wrapper(*args):
         result = False
         args_count = len(args)
-        func_parameters_count = len(signature(func).parameters)
+        func_parameters_count = len(inspect.signature(func).parameters)
 
         if args_count > func_parameters_count:
             window = len(args)
@@ -110,7 +110,7 @@ def n_ary(func):
     return wrapper
 
 
-def trace(func):
+def trace(line):
     '''Trace calls made to function decorated.
 
     @trace("____")
@@ -130,13 +130,32 @@ def trace(func):
      <-- fib(3) == 3
 
     '''
+    def decorator(func):
+        calls_count = 0
 
-    @wraps(func)
-    def wrapper(*args):
+        @wraps(func)
+        def wrapper(*args):
+            nonlocal calls_count
 
-        return func
+            caller_func = inspect.stack()[2][3]
+            if caller_func != 'wrapper':
+                calls_count = 0
 
-    return wrapper
+            if calls_count > 0:
+                level_line = line * calls_count
+            else:
+                level_line = ''
+
+            str_args = ', '.join([str(arg) for arg in args])
+            calls_count += 1
+            print('{} --> {}({})'.format(level_line, func.__name__, str_args))
+            result = func(*args)
+            print('{} <-- {}({}) == {}'.format(level_line, func.__name__, str_args, result))
+            calls_count -= 1
+
+            return result
+        return wrapper
+    return decorator
 
 
 @memo
@@ -149,13 +168,19 @@ def foo(a, b):
 @countcalls
 @memo
 @n_ary
+@trace("____")
 def bar(a, b):
     return a * b
 
 
-@countcalls
-@trace("####")
-@memo
+# @countcalls
+# @trace("####")
+# @memo
+# def fib(n):
+#     """Some doc"""
+#     return 1 if n <= 1 else fib(n-1) + fib(n-2)
+
+@trace("____")
 def fib(n):
     """Some doc"""
     return 1 if n <= 1 else fib(n-1) + fib(n-2)
