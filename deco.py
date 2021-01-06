@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import collections
 import inspect
-# from functools import update_wrapper
+from functools import update_wrapper
 from functools import wraps
 
 
@@ -24,25 +24,30 @@ def decorator(func):
     '''
 
     @wraps(func)
-    def wrapper():
-        __doc__ = func.__doc__
-        return func
-
-    return wrapper
-
-
-def countcalls(func):
-    """Decorator that counts calls made to the function decorated."""
-    functions = collections.defaultdict(int)
-
-    @wraps(func)
     def wrapper(*args, **kwargs):
-        functions[func.__name__] += 1
-        print('Function {} calls {} counts'.format(func.__name__, str(functions[func.__name__])))
-        original_func = func(*args, **kwargs)
-        return original_func
+        return func(*args, **kwargs)
 
     return wrapper
+
+
+class countcalls(object):
+    """Decorator that counts calls made to the function decorated."""
+    def __init__(self, func):
+        update_wrapper(self, func)
+        self.functions = collections.defaultdict(int)
+        self.func = func
+
+    def __call__(self, *args, **kwargs):
+        return self.wrapper(*args, **kwargs)
+
+    def wrapper(self, *args, **kwargs):
+        self.functions[self.func.__name__] += 1
+        print('Function {} calls {} counts'.format(self.func.__name__, str(self.functions[self.func.__name__])))
+        return self.func(*args, **kwargs)
+
+    @property
+    def calls(self):
+        return self.functions[self.func.__name__]
 
 
 ARGS, KWARGS, RESULT = (0, 1, 2)
@@ -141,10 +146,7 @@ def trace(line):
             if caller_func != 'wrapper':
                 calls_count = 0
 
-            if calls_count > 0:
-                level_line = line * calls_count
-            else:
-                level_line = ''
+            level_line = line * calls_count
 
             str_args = ', '.join([str(arg) for arg in args])
             calls_count += 1
@@ -158,8 +160,8 @@ def trace(line):
     return decorator
 
 
-@memo
 @countcalls
+@memo
 @n_ary
 def foo(a, b):
     return a + b
@@ -173,13 +175,7 @@ def bar(a, b):
     return a * b
 
 
-# @countcalls
-# @trace("####")
-# @memo
-# def fib(n):
-#     """Some doc"""
-#     return 1 if n <= 1 else fib(n-1) + fib(n-2)
-
+@countcalls
 @trace("____")
 def fib(n):
     """Some doc"""
@@ -190,16 +186,18 @@ def main():
     print(foo(4, 3))
     print(foo(4, 3, 2))
     print(foo(4, 3))
-    # print("foo was called", foo.calls, "times")
+    print(foo(5, 3))
+    print(foo(6, 3))
+    print("foo was called", foo.calls, "times")
 
     print(bar(4, 3))
     print(bar(4, 3, 2))
     print(bar(4, 3, 2, 1))
-    # print("bar was called", bar.calls, "times")
+    print("bar was called", bar.calls, "times")
 
     print(fib.__doc__)
     fib(3)
-    # print(fib.calls, 'calls made')
+    print(fib.calls, 'calls made')
 
 
 if __name__ == '__main__':
